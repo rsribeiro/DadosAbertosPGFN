@@ -22,7 +22,6 @@ import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
@@ -47,60 +46,7 @@ import java.util.Set;
 public class JuntaArquivosPGFN {
 	private static final Charset CHARSET = StandardCharsets.ISO_8859_1;
 
-	public static void main(String[] args) throws IOException {
-		if (args.length != 4 && args.length != 5) {
-			System.err.println("ERRO! Parâmetros de entrada diferente do formato esperado.");
-			System.err.println("Para simplesmente juntar todos os arquivos em um só, o formato esperado é:");
-			System.err.println("'<diretório FGTS> <diretório previdenciário> <diretório não previdenciário> <diretório saída>'");
-			System.err.println("Para filtrar o resultado final segundo uma lista de CNPJs, o formato esperado é:");
-			System.err.println("'<arquivo CNPJ> <diretório FGTS> <diretório previdenciário> <diretório não previdenciário> <diretório saída>'");
-			System.exit(1);
-		}
-
-		Optional<Path> arqCNPJ;
-		Path dirFGTS;
-		Path dirPrevidenciario;
-		Path dirNaoPrevidenciario;
-		Path dirSaida;
-
-		if (args.length == 4) {
-			arqCNPJ = Optional.empty();
-			dirFGTS = Paths.get(args[0]);
-			dirPrevidenciario = Paths.get(args[1]);
-			dirNaoPrevidenciario = Paths.get(args[2]);
-			dirSaida = Paths.get(args[3]);
-		} else {
-			arqCNPJ = Optional.of(Paths.get(args[0]));
-			dirFGTS = Paths.get(args[1]);
-			dirPrevidenciario = Paths.get(args[2]);
-			dirNaoPrevidenciario = Paths.get(args[3]);
-			dirSaida = Paths.get(args[4]);
-		}
-
-		if (arqCNPJ.isPresent()) {
-			validaParametroArquivo(arqCNPJ.get());
-		}
-		validaParametroDiretorioLeitura(dirFGTS);
-		validaParametroDiretorioLeitura(dirPrevidenciario);
-		validaParametroDiretorioLeitura(dirNaoPrevidenciario);
-		validaParametroDiretorioLeituraEscrita(dirSaida);
-
-		System.out.println("Parâmetros:");
-		if (arqCNPJ.isPresent()) {
-			System.out.println("Arquivo CNPJ = " + arqCNPJ.get());
-		}
-		System.out.println("Diretório FGTS = " + dirFGTS);
-		System.out.println("Diretório Previdenciário = " + dirPrevidenciario);
-		System.out.println("Diretório Não Previdenciário = " + dirNaoPrevidenciario);
-		System.out.println("Diretório Saída = " + dirSaida);
-
-		long t0 = System.nanoTime();
-		executaPrograma(arqCNPJ, dirFGTS, dirPrevidenciario, dirNaoPrevidenciario, dirSaida);
-		double deltaT = (System.nanoTime() - t0)/1E9;
-		System.out.println("Script executado em " + deltaT + "s.");
-	}
-
-	private static void executaPrograma(Optional<Path> arqCNPJ, Path dirFGTS, Path dirPrevidenciario, Path dirNaoPrevidenciario, Path dirSaida) throws IOException {
+	public void juntaArquivos(Optional<Path> arqCNPJ, Path dirFGTS, Path dirPrevidenciario, Path dirNaoPrevidenciario, Path dirSaida) throws IOException {
 		Path arqFGTS = dirSaida.resolve("fgts.csv");
 		Path arqPrevidenciario = dirSaida.resolve("previdenciario.csv");
 		Path arqNaoPrevidenciario = dirSaida.resolve("nao_previdenciario.csv");
@@ -122,7 +68,7 @@ public class JuntaArquivosPGFN {
 		criaBaseConsolidada(arqFGTS, arqPrevidenciario, arqNaoPrevidenciario, arqSaida);
 	}
 
-	private static Set<String> leArquivoCNPJs(Optional<Path> arqCNPJ) throws IOException {
+	public Set<String> leArquivoCNPJs(Optional<Path> arqCNPJ) throws IOException {
 		if (arqCNPJ.isPresent()) {
 			List<String> listaCNPJs = Files.readAllLines(arqCNPJ.get());
 			listaCNPJs.replaceAll(JuntaArquivosPGFN::cnpjParaNumero);
@@ -134,10 +80,10 @@ public class JuntaArquivosPGFN {
 		}
 	}
 
-	private static void criaBaseIndividual(Path arqSaida, Path dirEntrada, String arquivoOrigem, Collection<String> cnpjs) throws IOException {
+	public void criaBaseIndividual(Path arqSaida, Path dirEntrada, String arquivoOrigem, Collection<String> cnpjs) throws IOException {
 		System.out.println("Criando saída individual " + arqSaida);
 
-		try (BufferedWriter saida = Files.newBufferedWriter(arqSaida, CHARSET);) {
+		try (BufferedWriter saida = Files.newBufferedWriter(arqSaida, JuntaArquivosPGFN.CHARSET);) {
 			//Primeiro escreve o cabeçalho, copiando de algum arquivo qualquer.
 			//Adiciona coluna indicando o arquivo de origem
 			escreveCabecalhoBaseIndividual(saida, dirEntrada);
@@ -146,7 +92,7 @@ public class JuntaArquivosPGFN {
 			Files.list(dirEntrada).filter(JuntaArquivosPGFN::isCSV).forEach((arqEntrada) -> {
 				System.out.println("Processando arquivo " + arqEntrada);
 
-				try (BufferedReader entrada = Files.newBufferedReader(arqEntrada, CHARSET);) {
+				try (BufferedReader entrada = Files.newBufferedReader(arqEntrada, JuntaArquivosPGFN.CHARSET);) {
 					entrada.lines().skip(1).forEach((line) -> {
 						try {
 							String cnpj = cnpjParaNumero(line.substring(0, line.indexOf(';')));
@@ -170,17 +116,17 @@ public class JuntaArquivosPGFN {
 		}
 	}
 
-	private static void escreveCabecalhoBaseIndividual(BufferedWriter saida, Path dirEntrada) throws IOException {
+	public void escreveCabecalhoBaseIndividual(BufferedWriter saida, Path dirEntrada) throws IOException {
 		Path arquivoQualquer = Files.list(dirEntrada).filter(JuntaArquivosPGFN::isCSV).findAny().get();
-		try (BufferedReader entrada = Files.newBufferedReader(arquivoQualquer, CHARSET);) {
+		try (BufferedReader entrada = Files.newBufferedReader(arquivoQualquer, JuntaArquivosPGFN.CHARSET);) {
 			saida.write(entrada.readLine());
 			saida.write(";ARQUIVO_ORIGEM");
 			saida.newLine();
 		}
 	}
 
-	private static void criaBaseConsolidada(Path arqFGTS, Path arqPrevidenciario, Path arqNaoPrevidenciario, Path arqSaida) throws IOException {
-		try (BufferedWriter saida = Files.newBufferedWriter(arqSaida, CHARSET);) {
+	public void criaBaseConsolidada(Path arqFGTS, Path arqPrevidenciario, Path arqNaoPrevidenciario, Path arqSaida) throws IOException {
+		try (BufferedWriter saida = Files.newBufferedWriter(arqSaida, JuntaArquivosPGFN.CHARSET);) {
 			System.out.println("Criando saída consolidada " + arqSaida);
 
 			//Cabeçalho contendo todas as colunas dos três arquivos
@@ -193,8 +139,8 @@ public class JuntaArquivosPGFN {
 		}
 	}
 
-	private static void escreveBaseConsolidadaFGTS(Path arqEntrada, BufferedWriter saida) throws IOException {
-		try (BufferedReader entrada = Files.newBufferedReader(arqEntrada, CHARSET);) {
+	public void escreveBaseConsolidadaFGTS(Path arqEntrada, BufferedWriter saida) throws IOException {
+		try (BufferedReader entrada = Files.newBufferedReader(arqEntrada, JuntaArquivosPGFN.CHARSET);) {
 			System.out.println("Juntando arquivo FGTS " + arqEntrada);
 
 			//Pula a primeira linha, do cabeçalho
@@ -231,8 +177,8 @@ public class JuntaArquivosPGFN {
 		}
 	}
 
-	private static void escreveBaseConsolidadaPrevidenciario(Path arqEntrada, BufferedWriter saida) throws IOException {
-		try (BufferedReader entrada = Files.newBufferedReader(arqEntrada, CHARSET);) {
+	public void escreveBaseConsolidadaPrevidenciario(Path arqEntrada, BufferedWriter saida) throws IOException {
+		try (BufferedReader entrada = Files.newBufferedReader(arqEntrada, JuntaArquivosPGFN.CHARSET);) {
 			System.out.println("Juntando arquivo Previdenciário " + arqEntrada);
 
 			//Pula a primeira linha, do cabeçalho
@@ -269,8 +215,8 @@ public class JuntaArquivosPGFN {
 		}
 	}
 
-	private static void escreveBaseConsolidadaNaoPrevidenciario(Path arqEntrada, BufferedWriter saida) throws IOException {
-		try (BufferedReader entrada = Files.newBufferedReader(arqEntrada, CHARSET);) {
+	public void escreveBaseConsolidadaNaoPrevidenciario(Path arqEntrada, BufferedWriter saida) throws IOException {
+		try (BufferedReader entrada = Files.newBufferedReader(arqEntrada, JuntaArquivosPGFN.CHARSET);) {
 			System.out.println("Juntando arquivo Não Previdenciário " + arqEntrada);
 
 			//Pula a primeira linha, do cabeçalho
@@ -304,27 +250,6 @@ public class JuntaArquivosPGFN {
 					throw new RuntimeException(e);
 				}
 			});
-		}
-	}
-
-	private static void validaParametroArquivo(Path path) {
-		if (!Files.exists(path) || Files.isDirectory(path) || !Files.isReadable(path)) {
-			System.err.println("Certifique-se de que o arquivo '" + path + "' existe e há acesso de leitura.");
-			System.exit(1);
-		}
-	}
-
-	private static void validaParametroDiretorioLeitura(Path path) {
-		if (!Files.exists(path) || !Files.isDirectory(path) || !Files.isReadable(path)) {
-			System.err.println("Certifique-se de que o diretório '" + path + "' existe e há acesso de leitura.");
-			System.exit(1);
-		}
-	}
-
-	private static void validaParametroDiretorioLeituraEscrita(Path path) {
-		if (!Files.exists(path) || !Files.isDirectory(path) || !Files.isReadable(path) || !Files.isWritable(path)) {
-			System.err.println("Certifique-se de que o diretório '" + path + "' existe e há acesso de leitura e escrita.");
-			System.exit(1);
 		}
 	}
 
